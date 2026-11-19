@@ -481,12 +481,19 @@ textarea.input { resize: vertical; min-height: 96px; }
 .hero__media { position: absolute; inset: 0; overflow: hidden; }
 .hero__ambient { width: 100%; height: 100%; object-fit: cover; }
 .hero__reel { display: none; }
+.hero__wall { display: none; }
 @media (min-width: 1024px) {
-  .hero__ambient { filter: blur(28px) brightness(0.55) saturate(1.1); transform: scale(1.15); }
-  .hero__reel { display: block; position: absolute; z-index: 2; top: 50%; right: max(var(--gutter), calc((100% - var(--container)) / 2)); transform: translateY(-46%);
-    height: min(72vh, 680px); aspect-ratio: 480 / 912; border-radius: 14px; overflow: hidden;
-    border: 1px solid rgba(200, 165, 106, 0.45); box-shadow: 0 40px 90px rgba(0, 0, 0, 0.6), 0 0 0 8px rgba(244, 241, 236, 0.04); }
-  .hero__reel video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .hero__ambient { display: none; }
+  .hero__wall { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; position: absolute; inset: 0; background: #0a0906; }
+  .hero__panel { position: relative; overflow: hidden; }
+  .hero__panel video { width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0; transform: scale(1.04); transition: opacity 1400ms var(--ease), transform 9000ms var(--ease); }
+  .hero__panel video.is-on { opacity: 1; transform: scale(1); }
+  .hero__panel:nth-child(1) video { transition-delay: 0ms; } .hero__panel:nth-child(2) video { transition-delay: 150ms; }
+  .hero__panel:nth-child(3) video { transition-delay: 300ms; } .hero__panel:nth-child(4) video { transition-delay: 450ms; }
+  .hero__panel::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 1px rgba(200, 165, 106, 0.14); pointer-events: none; }
+  .hero .hero__shade { background:
+      linear-gradient(90deg, rgba(8, 7, 5, 0.94) 0%, rgba(8, 7, 5, 0.86) 30%, rgba(8, 7, 5, 0.45) 55%, rgba(8, 7, 5, 0.12) 78%, rgba(8, 7, 5, 0.05) 100%),
+      linear-gradient(180deg, rgba(8, 7, 5, 0.9) 0%, rgba(8, 7, 5, 0.6) 14%, rgba(8, 7, 5, 0) 26%, rgba(8, 7, 5, 0) 72%, rgba(8, 7, 5, 0.75) 100%); }
 }
 @media (max-width: 1023px) {
   .hero .hero__shade { background: linear-gradient(180deg, rgba(8, 7, 5, 0.6) 0%, rgba(8, 7, 5, 0.58) 30%, rgba(8, 7, 5, 0.82) 68%, rgba(8, 7, 5, 0.94) 100%); }
@@ -536,7 +543,8 @@ textarea.input { resize: vertical; min-height: 96px; }
   <!-- HERO -->
   <section class="hero" id="top" aria-labelledby="hero-title">
     <div class="hero__media" aria-hidden="true">
-      <video class="hero__ambient" src="assets/hero.mp4" poster="assets/hero-poster.jpg" muted autoplay loop playsinline preload="auto"></video>
+      <video class="hero__ambient" src="assets/hero.mp4" poster="assets/hero-poster.jpg" muted loop playsinline preload="auto"></video>
+      <div class="hero__wall"><div class="hero__panel"><video data-offset="21" src="assets/hero.mp4" muted loop playsinline preload="none"></video></div><div class="hero__panel"><video data-offset="7" src="assets/hero.mp4" muted loop playsinline preload="none"></video></div><div class="hero__panel"><video data-offset="0" src="assets/hero.mp4" muted loop playsinline preload="none"></video></div><div class="hero__panel"><video data-offset="14" src="assets/hero.mp4" muted loop playsinline preload="none"></video></div></div>
     </div>
     <div class="hero__shade" aria-hidden="true"></div>
     <div class="hero__glow" aria-hidden="true"></div>
@@ -551,7 +559,7 @@ textarea.input { resize: vertical; min-height: 96px; }
     </div>
 
     <a class="hero__scroll small-caps" href="#studio"><svg class="icon" aria-hidden="true"><use href="#i-mouse-simple"/></svg>Scroll to explore</a>
-    <div class="hero__reel" aria-hidden="true"><video src="assets/hero.mp4" poster="assets/hero-poster.jpg" muted autoplay loop playsinline preload="auto"></video></div>
+    
   </section>
 
   <!-- ABOUT -->
@@ -753,9 +761,27 @@ textarea.input { resize: vertical; min-height: 96px; }
   var heroEl = $('.hero');
   requestAnimationFrame(function () { requestAnimationFrame(function () { heroEl.classList.add('is-ready'); }); });
   /* Hero video: pause when hidden or reduced motion */
-  var heroVids = $$('.hero video');
-  heroVids.forEach(function (v) { if (reduce) { v.removeAttribute('autoplay'); v.pause(); } else { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } });
-  document.addEventListener('visibilitychange', function () { heroVids.forEach(function (v) { if (document.hidden) v.pause(); else if (!reduce) v.play().catch(function () {}); }); });
+  var mqDesk = window.matchMedia('(min-width: 1024px)');
+  var ambient = $('.hero__ambient'), panels = $$('.hero__panel video');
+  panels.forEach(function (v) {
+    var start = function () { try { v.currentTime = Number(v.getAttribute('data-offset')) || 0; } catch (e) {} };
+    v.addEventListener('loadedmetadata', start, { once: true });
+    v.addEventListener('playing', function () { v.classList.add('is-on'); }, { once: true });
+    v.addEventListener('seeked', function () { if (reduce) v.classList.add('is-on'); }, { once: true });
+  });
+  function activeVids() { return mqDesk.matches ? panels : (ambient ? [ambient] : []); }
+  function syncHero() {
+    var on = activeVids();
+    $$('.hero video').forEach(function (v) {
+      if (on.indexOf(v) === -1) { v.pause(); return; }
+      if (v.preload === 'none') { v.preload = 'auto'; v.load(); }
+      if (reduce || document.hidden) v.pause();
+      else { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); }
+    });
+  }
+  syncHero();
+  if (mqDesk.addEventListener) mqDesk.addEventListener('change', syncHero); else if (mqDesk.addListener) mqDesk.addListener(syncHero);
+  document.addEventListener('visibilitychange', syncHero);
 
   /* Header gets more solid once you leave the top */
   var header = $('#header');
