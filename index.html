@@ -506,6 +506,10 @@ textarea.input { resize: vertical; min-height: 96px; }
   .hero .hero__cta { margin-top: 20px; }
   .hero .eyebrow { font-size: 0.625rem; }
 }
+
+/* never show the native iOS play button over the hero */
+.hero video::-webkit-media-controls, .hero video::-webkit-media-controls-start-playback-button, .hero video::-webkit-media-controls-overlay-play-button { display: none !important; -webkit-appearance: none; opacity: 0; }
+img.hero__ambient { width: 100%; height: 100%; object-fit: cover; display: block; }
 </style>
 <script>document.documentElement.classList.add('js')</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"Creative Visual Group","description":"Luxury visual merchandising and fabrication studio.","address":{"@type":"PostalAddress","streetAddress":"400 Swenson Drive","addressLocality":"Kenilworth","addressRegion":"NJ","postalCode":"07033","addressCountry":"US"},"sameAs":["https://www.instagram.com/creativevisualgroup/"]}</script>
@@ -553,7 +557,23 @@ textarea.input { resize: vertical; min-height: 96px; }
   <section class="hero" id="top" aria-labelledby="hero-title">
     <div class="hero__media" aria-hidden="true">
       <video class="hero__ambient" src="assets/hero-m.mp4" poster="assets/hero-m-poster.jpg" muted autoplay loop playsinline webkit-playsinline preload="auto"></video>
-      <script>(function(){var v=document.querySelector('.hero__ambient');if(!v)return;v.muted=true;if(window.matchMedia('(min-width: 1024px)').matches){v.removeAttribute('autoplay');v.preload='none';v.pause();return;}var p=v.play();if(p&&p.catch)p.catch(function(){});})();</script>
+      <script>(function(){
+  var v=document.querySelector('.hero__ambient'); if(!v) return;
+  v.muted=true; v.defaultMuted=true; v.setAttribute('muted','');
+  if(window.matchMedia('(min-width: 1024px)').matches){ v.removeAttribute('autoplay'); v.preload='none'; v.pause(); return; }
+  var isApple=/Apple/.test(navigator.vendor||'');
+  var swapped=false;
+  function swap(){
+    /* Safari plays an MP4 inside an <img> like a looping GIF, even in Low Power Mode */
+    if(swapped||!isApple||!v.parentNode) return; if(!v.paused && v.currentTime>0) return;
+    swapped=true;
+    var img=new Image(); img.className='hero__ambient'; img.alt=''; img.setAttribute('aria-hidden','true');
+    img.onload=function(){ if(v.parentNode) v.parentNode.replaceChild(img,v); };
+    img.src=v.currentSrc||v.getAttribute('src');
+  }
+  var p=v.play(); if(p&&p.catch) p.catch(swap);
+  setTimeout(function(){ if(v.paused) swap(); },1500);
+})();</script>
       <div class="hero__wall"><div class="hero__panel"><video data-offset="21" src="assets/hero.mp4" muted loop playsinline preload="none"></video></div><div class="hero__panel"><video data-offset="7" src="assets/hero.mp4" muted loop playsinline preload="none"></video></div><div class="hero__panel"><video data-offset="0" src="assets/hero.mp4" muted loop playsinline preload="none"></video></div><div class="hero__panel"><video data-offset="14" src="assets/hero.mp4" muted loop playsinline preload="none"></video></div></div>
     </div>
     <div class="hero__shade" aria-hidden="true"></div>
@@ -563,7 +583,7 @@ textarea.input { resize: vertical; min-height: 96px; }
       <div class="hero__copy">
         <p class="eyebrow eyebrow--line hero__in">Luxury retail visuals &amp; fabrication</p>
         <h1 id="hero-title" class="display hero__title"><span class="line"><span>Ideas that</span></span><span class="line"><span class="gold-text">come to life</span></span></h1>
-        <p class="body hero__sub hero__in hero__in--2">We design, fabricate and install immersive retail environments that elevate your brand and create unforgettable experiences.</p>
+        <p class="body hero__sub hero__in hero__in--2">We design, fabricate and install immersive retail environments that elevate your brand and captivate your audience.</p>
         <p class="hero__cta hero__in hero__in--3"><a class="btn btn--gold" href="#portfolio">View our work <svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></a></p>
       </div>
     </div>
@@ -779,7 +799,7 @@ textarea.input { resize: vertical; min-height: 96px; }
     v.addEventListener('playing', function () { v.classList.add('is-on'); }, { once: true });
     v.addEventListener('seeked', function () { if (reduce) v.classList.add('is-on'); }, { once: true });
   });
-  function activeVids() { return mqDesk.matches ? panels : (ambient ? [ambient] : []); }
+  function activeVids() { var a = $('.hero__ambient'); return mqDesk.matches ? panels : (a && a.tagName === 'VIDEO' ? [a] : []); }
   function syncHero() {
     var on = activeVids();
     $$('.hero video').forEach(function (v) {
